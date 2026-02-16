@@ -26,15 +26,16 @@
        (group-by grouping-key)
        (into (sorted-map))))
 
+(defn- format-row [id name size parent]
+  (let [base-row {:id id :name name :size size}]
+    (if (nil? parent) base-row (conj base-row {:parent parent}))))
+
 (defn- format-partitions [topic-id partitions-per-topic]
   (->> (sorted-group-by partitions-per-topic :partition)
        (map-indexed (fn [idx [partition-name partition-details]]
                       (let [partition-id (str idx)
                             partition-size (reduce + (map :size partition-details))]
-                        {:id (str topic-id "." partition-id)
-                         :name partition-name
-                         :size partition-size
-                         :parent topic-id})))))
+                        (format-row (str topic-id "." partition-id) partition-name partition-size topic-id))))))
 
 (defn- transform-sizes [sizes]
   (->> (sorted-group-by sizes :topic)
@@ -42,7 +43,7 @@
         (fn [idx [topic partitions]]
           (let [topic-id (str idx)
                 topic-size (reduce + (map :size partitions))
-                parent-details {:id topic-id :name topic :size topic-size}
+                parent-details (format-row topic-id topic topic-size nil)
                 formatted-partitions (format-partitions topic-id partitions)]
             (cons parent-details formatted-partitions))))
        (apply concat)
